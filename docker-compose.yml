@@ -1,0 +1,56 @@
+version: '3.4'
+
+volumes:
+  produtos_data:
+
+networks:
+  frontend:
+  backend:
+
+services:
+
+  mysql:
+    container_name: mysqldb
+    image: "mysql"
+    volumes:
+      - produtos_data:/var/lib/mysql
+      - ./MVC_Docker_Load_Balancer/_MySQL_Init_Script:/docker-entrypoint-initdb.d
+    restart: always
+    networks:
+      - backend
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=numsey
+      - bind-address=0.0.0.0 
+
+  mvc:
+    build:
+      context: .
+      dockerfile: MVC_Docker_Load_Balancer/Dockerfile
+    deploy:
+      replicas: 3
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "80"
+    environment:
+      - DBHOST=mysql
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - mysql
+
+
+  haproxy:
+    image: haproxy:latest
+    container_name: haproxylb
+    ports:
+      - "8080:80"
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - mvc
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
